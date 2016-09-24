@@ -1,0 +1,151 @@
+
+% Date: Aug. 18, 2011
+
+% Run time: roughly N^2 routine.  N ~ O(300,000) is limit for an overnight run
+%
+% Save this and associated files as: 'bblocks_examp.sl', 'sitar.sl'
+%
+% To run:   isis> .load bblocks_driver  % and then you're finished!
+
+% Load the main package:
+
+require("sitar.sl");
+
+% Variables that need to be set.
+
+variable file="15044_sgra_events_2-8keV_1.25asec.fits";   % Event file to read
+variable ncp_prior = 4.6;     % Significance level (see below)
+variable plot_step = 300.;   % Step size (plotting only) of input lightcurve
+variable ctype = 3;          % How to assign intervals to events (see
+                             %    sitar_make_data_cells.sl) ctype=3 is for  
+                             %    a binned lightcurve
+variable bsize = 1.14104*3.; % binsize for ctype=3. If <=0, then binsize = 
+                             %    timedel from FITS file
+variable clump = 0.5;        % Events closer together than this time are 
+                             %    assigned to the same cell (see 
+                             %    sitar_make_data_cells)
+variable plotit = 0;         % =0 for screen plotting, > 0  print to file
+variable talt = 1;           % start & stop times to use on the lightcurve:
+                             %    = 0 for FITS file, > 0 this file (below)
+variable writeit = 0;        % = 0 don't write data, > 0 send to a file
+
+variable event_times = fits_read_col(file,"TIME");
+variable tstart = fits_read_key(file, "TSTART");
+variable tstop = fits_read_key(file, "TSTOP");
+variable frame = fits_read_key(file, "TIMEDEL");
+variable dtcor = fits_read_key(file,"DTCOR");
+variable object = fits_read_key(file, "OBJECT");
+
+variable tstart_file = tstart, tstop_file = tstop;
+
+% Alternative definition for tstart and tstop
+
+if(talt)
+{ 
+   tstart = min(event_times);
+   tstop = max(event_times);
+}
+
+if(ctype == 3 and bsize > 0.)
+ 
+   frame = bsize;
+ 
+
+% Make the data cells to be searched.  
+
+ variable cell;
+ cell = sitar_make_data_cells( event_times,ctype,clump,frame,tstart,tstop );
+
+% Chandra specific deadtime correction
+
+cell.dtcor = cell.dtcor * dtcor;
+
+% Main call.  
+%
+% ncp_prior ~ - natural log of (1 - significance level)
+% ncp_prior = 1.1 is ~68% confidence level *per block*
+% ncp_prior = 3.0 is ~95%
+% ncp_prior = 4.6 is ~99%
+% ncp_prior = 7.0 is ~99.9%
+%
+% ***  This is only a rough way of looking at this parameter which
+%      is very bad for ncp_prior low, or for very long lightcurves.  ***
+
+variable results = sitar_global_optimum( cell, ncp_prior, ctype );
+
+% Bin up the events for plotting purposes
+
+   variable ev = struct{ lo_t, hi_t, rate, err };
+   ev.lo_t = [ tstart : tstop : plot_step ];
+   ev.hi_t = ev.lo_t + plot_step;
+   ev.rate = @ev.lo_t;
+   ev.err = @ev.lo_t;
+
+   variable i=0, bincts, intvl;
+   loop(length(ev.lo_t))
+   {  
+      bincts = length( where( event_times >= ev.lo_t[i] and 
+                              event_times  < ev.hi_t[i] ) );
+      intvl = ( ev.hi_t[i] - ev.lo_t[i] ) * dtcor;
+      ev.rate[i] = bincts / intvl;
+      ev.err[i] = ( 0.75 + sqrt( 1. + bincts ) ) / intvl;
+      i++;               
+   } 
+
+% Plot the results. We define a function to do that, in case we want
+% to do it a lot.
+
+public define sitar_examp_plot( results, ev, object, file, plot_step, ncp_prior, 
+                     tstart, tstop, plotit )
+{
+   variable sig = typecast( (1.-exp(-ncp_prior))*10000., Integer_Type );
+   sig = string(sig/100.);
+   object = strtrans(object," ","");  
+
+   if(plotit)
+   {
+      variable id = open_plot(object+"_"+file+"_"+string(plot_step)+
+                              "_"+sig+".ps/vcps");
+      resize(10,0.9);
+   }
+
+   label(
+         "Time (sec)", "Rate (cps)",
+         "\\fr "+object+"/"+file+" ("+string(plot_step)+" sec. bins, "+
+         sig+"% sig.)"
+        );
+
+   linestyle(4);
+   set_line_width(3);
+   charsize(1.2);
+
+   xrange( 0., tstop - tstart );
+   yrange( min(ev.rate[ [0:length(ev.rate)-2] ]) - 0.05*max(ev.rate),
+           1.05*max( [ results.rate, ev.rate ] ) );
+
+   % For plotting purposes, renorm to input start time
+
+   hplot( ev.lo_t-tstart, ev.hi_t-tstart, ev.rate );
+   linestyle(1);
+   set_line_width(6);
+   ohplot( results.lo_t-tstart, results.hi_t-tstart, results.rate, 2 );
+
+   if(plotit) close_plot(id);
+   writecol("trash.txt",sig);
+
+   variable start = ev.lo_t-tstart;
+   variable end = ev.hi_t-tstart;
+   writecol("figure.txt",start,end,ev.rate);
+
+   variable bstart = results.lo_t-tstart;
+   variable bend = results.hi_t-tstart;
+   writecol("bayesian.txt",bstart,bend,results.rate,results.err);
+
+   writecol("title.txt",plot_step,sig);
+   return sig;
+}
+
+
+
+sitar_examp_plot( results, ev, object, file, plot_step, ncp_prior,
+                 tstart_file, tstop_file, plotit );

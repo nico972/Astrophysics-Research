@@ -1,0 +1,19 @@
+ObsID = 16216
+starting date = 2014-08-02
+starting time = 03:31:41
+ending date = 2014-08-02
+ending time = 17:09:53
+tstart = 523337501
+tstop = 523386593
+dt_cor= 0
+exposure = 42689
+bg_rate = 0
+duration= [  1599.43120068  47600.56879932]
+
+For p0 = 0.050000 and version = b 
+bstart= [    0.          1599.43120068]
+bstop= [  1599.43120068  49200.        ]
+rates= [ 0.          0.00529405]
+berr= [ 0.00076282  0.00119758]
+
+The flares are:

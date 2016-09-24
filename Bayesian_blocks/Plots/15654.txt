@@ -1,0 +1,20 @@
+ObsID = 15654
+starting date = 2013-06-09
+starting time = 04:26:16
+ending date = 2013-06-09
+ending time = 07:38:28
+tstart = 487139176
+tstop = 487150708
+dt_cor= 0
+exposure = 9028
+bg_rate = 0
+duration= [ 7709.10441151  3990.89558849]
+
+For p0 = 0.050000 and version = b 
+bstart= [    0.          7709.10441151]
+bstop= [  7709.10441151  11700.        ]
+rates= [ 0.00090802  0.00451027]
+berr= [  4.54871115e-05   5.78490953e-04]
+
+The flares are:
+block2

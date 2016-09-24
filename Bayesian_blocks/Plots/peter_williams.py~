@@ -1,0 +1,109 @@
+tstart = 4.8474233050526* 10**8
+tstop  =  4.8476015679373 * 10**8
+
+import astropy.io.fits
+from astropy.io import fits/Users/Nicolas/Desktop/flares/Plots/14703_sgra_bkgsub_lc_2-8keV_1.25asec.fits 
+import matplotlib.pyplot as plt 
+import numpy as np
+
+#Allow to load column data in text or any other type of file
+import spinmob as s
+
+
+#Open the fits file with the time-tagged event array
+#You have to have these files in the same directory as you are. 
+ffile = fits.open('14702_sgra_events_2-8keV_1.25asec.fits')
+
+#open the fits file with the binned data
+ffile2 = fits.open('14702_sgra_lc_2-8keV_1.25asec.fits')
+data2 = ffile2[1].data
+ 
+#This is the original bining of the data. 
+plot_step = 300 
+
+#this is to see the headers
+head = ffile[0].header  
+head2 = ffile2[1].header  
+
+#This is the names in the different headers of the certain arrays we want to 
+#access. 
+plot_counts = 'COUNTS'
+plot_rate = 'COUNT_RATE'
+ploterr = 'COUNT_RATE_ERR'
+plotx = 'TIME'
+
+
+#Load the data of the particular arrays you want from the fits file
+time_bin = data2.field(plotx)
+#...and substart this array of time to the start time to start at 0 instead of 
+#...a random time
+x = time_bin - tstart
+y = data2.field(plot_rate)
+err = data2.field(ploterr)
+
+
+#This is importing the package to output Peter Williams algorithm version
+import pwkit
+from pwkit import bblocks
+
+data = ffile[1].data
+plot_t = 'TIME'
+
+# extract the array data for the header 'TIME' 
+times_events = data.field(plot_t)
+
+
+#For plotting purposes
+end = tstop - tstart
+time_starts = np.arange(0,end,plot_step)
+
+array_step = []
+for i in range(0,len(time_starts)):
+    array_step.append(plot_step)
+    
+time_stops = time_starts + array_step 
+
+#Again substract the start time to start at 0 instead of some random time 
+times = times_events - tstart
+
+#THIS IS THE COMMAND FROM THE KIT THAT OUTPUT THE BLOCKS DATA 
+output = bblocks.tt_bblock(time_starts, time_stops, times, p0=0.05)
+
+#Most imoprtant outputs. 
+blocks = output.blockstarts
+rates = output.rates
+bining = output.widths
+output.final = output.finalp0
+
+plt.xlabel('time (s)')
+plt.ylabel('COUNT_RATE (counts/s)')
+
+#Plot the lightcurve
+plt.errorbar(x,y,err,color='g',fmt='-o',ecolor='g')
+
+'''
+#This is if we want to use the start of the blocks from 'blockstarts' output
+bstart_2 = []
+j = 0
+while j<len(blocks):
+    bstart_2.append(times[blocks[j]])
+    j=j+1;
+'''
+
+#This is using the start of the blocks from 'ledges' output
+bstart = output.ledges
+bend = output.redges
+
+#Plot every single bar with a width being the difference between
+#...the present block and the start of the next block
+j=0
+for j in range(0,len(rates)-1):
+    plt.bar(bstart[j]-bstart[0],rates[j], width=(bstart[j+1]-bstart[j]),
+            alpha=0.5,color='r')        
+
+
+#Plot the last block that doesn't plot in the for loop.             
+plt.bar(bstart[-1]-bstart[0],rates[-1],width = x[-1]-bstart[-1],
+        alpha=0.5,color='r')
+
+
